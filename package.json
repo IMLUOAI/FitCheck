@@ -1,0 +1,20 @@
+{
+  "description": "DripCast \u2014 a Gen Z weather/outfit mobile app. Monorepo: Expo mobile frontend + typed API client + theme tokens. Backend API is external and untouched.",
+  "engines": {
+    "node": ">=20"
+  },
+  "name": "dripcast",
+  "private": true,
+  "scripts": {
+    "android": "npm run android --workspace=@dripcast/mobile",
+    "ios": "npm run ios --workspace=@dripcast/mobile",
+    "start": "npm run start --workspace=@dripcast/mobile",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck:mobile": "npm run typecheck --workspace=@dripcast/mobile"
+  },
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+/*
+ * Runtime theme tokens. `:root` carries the default cyberpunk palette;
+ * `.theme-clean` (toggled on the root view by the theme store) overrides
+ * every token with the light minimal palette.
+ *
+ * Tailwind utilities reference these variables via @theme below, so every
+ * `bg-void` / `text-text` / `border-line` / `bg-neon-pink` class follows the
+ * active theme with zero component changes. Inline styles and icon colors
+ * use the `usePalette()` hook instead (same token names, from @dripcast/theme).
+ */
+:root {
+  --dc-void: #05060f;
+  --dc-panel: #0b0e1d;
+  --dc-panel-raised: #131830;
+  --dc-line: #232a4d;
+  --dc-text: #f4f6ff;
+  --dc-muted: #9aa3c7;
+  --dc-faint: #5b648c;
+  --dc-neon-pink: #ff2d78;
+  --dc-neon-cyan: #22d3ee;
+  --dc-neon-purple: #8b5cf6;
+  --dc-acid: #c6ff4a;
+  --dc-hot: #ff6b4a;
+  --dc-warm: #ffc24b;
+  --dc-cold: #4aa8ff;
+  --dc-danger: #ff5470;
+  --dc-success: #3ddc97;
+}
+
+.theme-clean {
+  --dc-void: #fafaf7;
+  --dc-panel: #ffffff;
+  --dc-panel-raised: #f0efe9;
+  --dc-line: #e2dfd6;
+  --dc-text: #17171d;
+  --dc-muted: #5d6372;
+  --dc-faint: #9aa0ae;
+  --dc-neon-pink: #d6336c;
+  --dc-neon-cyan: #0b7a94;
+  --dc-neon-purple: #7048e8;
+  --dc-acid: #5c940d;
+  --dc-hot: #e8590c;
+  --dc-warm: #d9a012;
+  --dc-cold: #1971c2;
+  --dc-danger: #e03131;
+  --dc-success: #2f9e44;
+}
+
+@theme {
+  --color-void: var(--dc-void);
+  --color-panel: var(--dc-panel);
+  --color-panel-raised: var(--dc-panel-raised);
+  --color-line: var(--dc-line);
+  --color-text: var(--dc-text);
+  --color-muted: var(--dc-muted);
+  --color-faint: var(--dc-faint);
+  --color-neon-pink: var(--dc-neon-pink);
+  --color-neon-cyan: var(--dc-neon-cyan);
+  --color-neon-purple: var(--dc-neon-purple);
+  --color-acid: var(--dc-acid);
+  --color-hot: var(--dc-hot);
+  --color-warm: var(--dc-warm);
+  --color-cold: var(--dc-cold);
+  --color-danger: var(--dc-danger);
+  --color-success: var(--dc-success);
+}

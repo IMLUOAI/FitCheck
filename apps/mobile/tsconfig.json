@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@dripcast/api": [
+        "../../packages/api/src/index.ts"
+      ],
+      "@dripcast/theme": [
+        "../../packages/theme/src/index.ts"
+      ]
+    },
+    "strict": true
+  },
+  "extends": "expo/tsconfig.base",
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
+}

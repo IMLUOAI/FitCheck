@@ -1,0 +1,8 @@
+{
+  "description": "Typed fetch client for the DripCast backend API (external service, read-only contract).",
+  "main": "./src/index.ts",
+  "name": "@dripcast/api",
+  "private": true,
+  "types": "./src/index.ts",
+  "version": "0.1.0"
+}

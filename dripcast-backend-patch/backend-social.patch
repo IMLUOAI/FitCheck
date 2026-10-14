@@ -1,0 +1,523 @@
+diff --git a/controllers/battle.js b/controllers/battle.js
+new file mode 100644
+index 0000000..4b0ac3a
+--- /dev/null
++++ b/controllers/battle.js
+@@ -0,0 +1,129 @@
++const mongoose = require("mongoose");
++const Battle = require("../models/battle");
++const Fit = require("../models/fit");
++const BadRequestError = require("../errors/BadRequestError");
++const NotFoundError = require('../errors/NotFoundError');
++const ForbiddenError = require('../errors/ForbiddenError');
++const { parsePagination } = require("../utils/pagination");
++
++// Public shape: both fits come with their items so a battle card renders
++// without extra fetches; createdBy is limited to the public profile fields.
++const battlePopulate = [
++  {
++    path: "fitA fitB",
++    populate: [
++      { path: "owner", select: "_id name avatar" },
++      { path: "items", select: "_id name imageUrl weather" },
++    ],
++  },
++  { path: "createdBy", select: "_id name avatar" },
++];
++
++// getBattles (public). Query: ?status=open|closed&limit=&page=
++module.exports.getBattles = (req, res, next) => {
++  const { limit, page } = parsePagination(req.query);
++  const filter = {};
++
++  if (req.query.status) {
++    if (!["open", "closed"].includes(req.query.status)) {
++      return next(new BadRequestError('status must be "open" or "closed"'));
++    }
++    filter.status = req.query.status;
++  }
++
++  return Battle.find(filter)
++    .sort({ createdAt: -1 })
++    .skip((page - 1) * limit)
++    .limit(limit)
++    .populate(battlePopulate)
++    .then((battles) => res.status(200).json(battles))
++    .catch(next);
++};
++
++// createBattle (auth)
++module.exports.createBattle = async (req, res, next) => {
++  const { fitA, fitB } = req.body;
++  const createdBy = req.user._id;
++
++  try {
++    if (fitA === fitB) {
++      return next(new BadRequestError("fitA and fitB must be different fits"));
++    }
++
++    const fits = await Fit.find({ _id: { $in: [fitA, fitB] } });
++    if (fits.length !== 2) {
++      return next(new NotFoundError("One or both fits not found"));
++    }
++
++    const battle = await Battle.create({ fitA, fitB, createdBy });
++    return res.status(201).send({ data: battle });
++  } catch (err) {
++    if (err.name === "ValidationError") {
++      return next(new BadRequestError("Invalid data passed"));
++    }
++    return next(err);
++  }
++};
++
++// voteBattle (auth). One vote per user, enforced atomically: the update only
++// applies when the battle is open AND the voter is not already in voters,
++// so concurrent double-votes are impossible.
++module.exports.voteBattle = async (req, res, next) => {
++  const { id } = req.params;
++  const { pick } = req.body;
++  const userId = req.user._id;
++
++  try {
++    if (!mongoose.Types.ObjectId.isValid(id)) {
++      return next(new BadRequestError("Invalid battle ID"));
++    }
++
++    const field = pick === "A" ? "votesA" : "votesB";
++    const battle = await Battle.findOneAndUpdate(
++      { _id: id, status: "open", voters: { $ne: userId } },
++      { $inc: { [field]: 1 }, $addToSet: { voters: userId } },
++      { new: true }
++    );
++
++    if (battle) {
++      return res.status(200).send({ message: "Vote recorded", data: battle });
++    }
++
++    // The atomic update matched nothing — figure out why for a clear error.
++    const existing = await Battle.findById(id);
++    if (!existing) {
++      return next(new NotFoundError("Battle not found"));
++    }
++    if (existing.status !== "open") {
++      return next(new BadRequestError("Battle is closed"));
++    }
++    return next(new BadRequestError("You have already voted in this battle"));
++  } catch (err) {
++    return next(err);
++  }
++};
++
++// closeBattle (auth, creator only)
++module.exports.closeBattle = async (req, res, next) => {
++  const { id } = req.params;
++  const userId = req.user._id;
++
++  try {
++    if (!mongoose.Types.ObjectId.isValid(id)) {
++      return next(new BadRequestError("Invalid battle ID"));
++    }
++
++    const battle = await Battle.findById(id).orFail(() => {
++      throw new NotFoundError("Battle not found");
++    });
++    if (battle.createdBy.toString() !== userId) {
++      throw new ForbiddenError("Only the battle creator can close it");
++    }
++
++    battle.status = "closed";
++    await battle.save();
++    return res.status(200).send({ message: "Battle closed", data: battle });
++  } catch (err) {
++    return next(err);
++  }
++};
+diff --git a/controllers/fit.js b/controllers/fit.js
+new file mode 100644
+index 0000000..22231d5
+--- /dev/null
++++ b/controllers/fit.js
+@@ -0,0 +1,123 @@
++const mongoose = require("mongoose");
++const Fit = require("../models/fit");
++const ClothingItem = require("../models/clothingItem");
++const BadRequestError = require("../errors/BadRequestError");
++const NotFoundError = require('../errors/NotFoundError');
++const ForbiddenError = require('../errors/ForbiddenError');
++const { parsePagination } = require("../utils/pagination");
++
++// Public shape: owner and items are populated so feed cards can render
++// without extra fetches.
++const fitPopulate = [
++  { path: "owner", select: "_id name avatar" },
++  { path: "items", select: "_id name imageUrl weather" },
++];
++
++// getFits (public). Query: ?owner=<id>&limit=&page=
++module.exports.getFits = (req, res, next) => {
++  const { limit, page } = parsePagination(req.query);
++  const filter = {};
++
++  if (req.query.owner) {
++    if (!mongoose.Types.ObjectId.isValid(req.query.owner)) {
++      return next(new BadRequestError("Invalid owner ID"));
++    }
++    filter.owner = req.query.owner;
++  }
++
++  return Fit.find(filter)
++    .sort({ createdAt: -1 })
++    .skip((page - 1) * limit)
++    .limit(limit)
++    .populate(fitPopulate)
++    .then((fits) => res.status(200).json(fits))
++    .catch(next);
++};
++
++// createFit (auth). Every item must exist and belong to the requester.
++module.exports.createFit = async (req, res, next) => {
++  const { items = [], weather, note } = req.body;
++  const owner = req.user._id;
++
++  try {
++    const owned = await ClothingItem.find({ _id: { $in: items }, owner });
++    if (owned.length !== items.length) {
++      return next(new BadRequestError("One or more items not found or not yours"));
++    }
++
++    const fit = await Fit.create({ owner, items, weather, note });
++    return res.status(201).send({ data: fit });
++  } catch (err) {
++    if (err.name === "ValidationError") {
++      return next(new BadRequestError("Invalid data passed"));
++    }
++    return next(err);
++  }
++};
++
++// deleteFit (auth, owner only)
++module.exports.deleteFit = (req, res, next) => {
++  const { id } = req.params;
++  const userId = req.user._id;
++
++  if (!mongoose.Types.ObjectId.isValid(id)) {
++    return next(new BadRequestError("Invalid fit ID"));
++  }
++  return Fit.findById(id)
++    .orFail(() => {
++      throw new NotFoundError("Fit not found");
++    })
++    .then((fit) => {
++      if (fit.owner.toString() !== userId) {
++        throw new ForbiddenError("Forbidden");
++      }
++      return Fit.findByIdAndRemove(id);
++    })
++    .then((fit) => {
++      res.status(200).send({ message: "Fit deleted", data: fit });
++    })
++    .catch((err) => {
++      next(err);
++    });
++};
++
++// likeFit (mirrors likeClothingItem)
++module.exports.likeFit = async (req, res, next) => {
++  const { id } = req.params;
++  try {
++    if (!mongoose.Types.ObjectId.isValid(id)) {
++      return next(new BadRequestError("Invalid fit ID"));
++    }
++
++    const fit = await Fit.findByIdAndUpdate(
++      id,
++      { $addToSet: { likes: req.user._id } },
++      { new: true }
++    ).orFail(() => {
++      throw new NotFoundError("Fit not found");
++    });
++    return res.status(200).send({ message: "Fit like was created", data: fit });
++  } catch (err) {
++    return next(err);
++  }
++};
++
++// dislikeFit (mirrors dislikeClothingItem)
++module.exports.dislikeFit = async (req, res, next) => {
++  const { id } = req.params;
++  try {
++    if (!mongoose.Types.ObjectId.isValid(id)) {
++      return next(new BadRequestError("Invalid fit ID"));
++    }
++    const fit = await Fit.findByIdAndUpdate(
++      id,
++      { $pull: { likes: req.user._id } },
++      { new: true }
++    ).orFail(() => {
++      throw new NotFoundError("Fit not found");
++    });
++    return res.status(200).send({ message: "Fit like was removed", data: fit });
++  } catch (err) {
++    return next(err);
++  }
++};
+diff --git a/controllers/user.js b/controllers/user.js
+index 502d515..4b108d2 100644
+--- a/controllers/user.js
++++ b/controllers/user.js
+@@ -27,6 +27,18 @@ module.exports.getCurrentUser = (req, res, next) => {
+       return next(err);
+     });
+ }
++// getPublicUser (no auth — public profile card for share links / feeds).
++// Only _id, name, avatar are ever selected: email/password can never leak.
++module.exports.getPublicUser = (req, res, next) => {
++  const { id } = req.params;
++  return User.findById(id)
++    .select("_id name avatar")
++    .orFail(() => {
++      throw new NotFoundError("User not found");
++    })
++    .then((user) => res.status(200).send(user))
++    .catch(next);
++};
+ // updateCurrentUser
+ 
+ module.exports.updateCurrentUser = async (req, res, next) => {
+diff --git a/middlewares/validation.js b/middlewares/validation.js
+index 6da6972..5b2eb7b 100644
+--- a/middlewares/validation.js
++++ b/middlewares/validation.js
+@@ -124,4 +124,42 @@ module.exports.validateGalleryLink = celebrate({
+       "string.max": 'The "title" field must be 60 characters or fewer',
+     }),
+   })
+-});
+\ No newline at end of file
++});
++const objectIdString = Joi.string().length(24).hex().required().messages({
++  'string.length': 'ID must be 24 characters long',
++  'string.hex': 'ID must be a hexadecimal value',
++});
++
++module.exports.validateFit = celebrate({
++  body: Joi.object().keys({
++    items: Joi.array().items(Joi.string().length(24).hex()).min(1).max(10).required().messages({
++      "array.min": 'The "items" field must contain at least one item',
++      "array.max": 'The "items" field must contain at most 10 items',
++      "string.length": 'Each item ID must be 24 characters long',
++      "string.hex": 'Each item ID must be a hexadecimal value',
++    }),
++    weather: Joi.string().valid('hot', 'warm', 'cold').required().messages({
++      "any.only": 'The "weather" field must be one of "hot", "warm", "cold"',
++      "string.empty": 'The "weather" field must be chosen',
++    }),
++    note: Joi.string().allow('').max(140).messages({
++      "string.max": 'The "note" field must be 140 characters or fewer',
++    }),
++  })
++});
++
++module.exports.validateBattle = celebrate({
++  body: Joi.object().keys({
++    fitA: objectIdString,
++    fitB: objectIdString,
++  })
++});
++
++module.exports.validateVote = celebrate({
++  body: Joi.object().keys({
++    pick: Joi.string().valid('A', 'B').required().messages({
++      "any.only": 'The "pick" field must be either "A" or "B"',
++      "string.empty": 'The "pick" field is required',
++    }),
++  })
++});
+diff --git a/models/battle.js b/models/battle.js
+new file mode 100644
+index 0000000..4a85314
+--- /dev/null
++++ b/models/battle.js
+@@ -0,0 +1,47 @@
++const mongoose = require("mongoose");
++
++const { ObjectId } = mongoose.Schema.Types;
++
++const battleSchema = new mongoose.Schema({
++  fitA: {
++    type: ObjectId,
++    ref: "Fit",
++    required: true,
++  },
++  fitB: {
++    type: ObjectId,
++    ref: "Fit",
++    required: true,
++  },
++  createdBy: {
++    type: ObjectId,
++    ref: "User",
++    required: true,
++  },
++  votesA: {
++    type: Number,
++    default: 0,
++  },
++  votesB: {
++    type: Number,
++    default: 0,
++  },
++  voters: [
++    {
++      type: ObjectId,
++      ref: "User",
++      default: [],
++    },
++  ],
++  status: {
++    type: String,
++    enum: ["open", "closed"],
++    default: "open",
++  },
++  createdAt: {
++    type: Date,
++    default: Date.now,
++  },
++});
++
++module.exports = mongoose.model("Battle", battleSchema);
+diff --git a/models/fit.js b/models/fit.js
+new file mode 100644
+index 0000000..5269b11
+--- /dev/null
++++ b/models/fit.js
+@@ -0,0 +1,39 @@
++const mongoose = require("mongoose");
++
++const { ObjectId } = mongoose.Schema.Types;
++
++const fitSchema = new mongoose.Schema({
++  owner: {
++    type: ObjectId,
++    ref: "User",
++    required: true,
++  },
++  items: [
++    {
++      type: ObjectId,
++      ref: "ClothingItem",
++    },
++  ],
++  weather: {
++    type: String,
++    required: true,
++    enum: ["hot", "warm", "cold"],
++  },
++  note: {
++    type: String,
++    maxlength: 140,
++  },
++  likes: [
++    {
++      type: ObjectId,
++      ref: "User",
++      default: [],
++    },
++  ],
++  createdAt: {
++    type: Date,
++    default: Date.now,
++  },
++});
++
++module.exports = mongoose.model("Fit", fitSchema);
+diff --git a/routes/battle.js b/routes/battle.js
+new file mode 100644
+index 0000000..5644cae
+--- /dev/null
++++ b/routes/battle.js
+@@ -0,0 +1,15 @@
++const router = require('express').Router();
++const { getBattles, createBattle, voteBattle, closeBattle } = require('../controllers/battle');
++const auth = require('../middlewares/auth');
++const { validateBattle, validateVote, validateId } = require('../middlewares/validation');
++
++
++
++router.get('/', getBattles);
++router.post('/', auth, validateBattle, createBattle);
++router.post('/:id/vote', auth, validateId, validateVote, voteBattle);
++router.post('/:id/close', auth, validateId, closeBattle);
++
++
++
++module.exports = router;
+diff --git a/routes/fit.js b/routes/fit.js
+new file mode 100644
+index 0000000..0939e7f
+--- /dev/null
++++ b/routes/fit.js
+@@ -0,0 +1,16 @@
++const router = require('express').Router();
++const { getFits, createFit, deleteFit, likeFit, dislikeFit } = require('../controllers/fit');
++const auth = require('../middlewares/auth');
++const { validateFit, validateId } = require('../middlewares/validation');
++
++
++
++router.get('/', getFits);
++router.post('/', auth, validateFit, createFit);
++router.delete('/:id', auth, validateId, deleteFit);
++router.put('/:id/likes', auth, validateId, likeFit);
++router.delete('/:id/likes', auth, validateId, dislikeFit);
++
++
++
++module.exports = router;
+diff --git a/routes/index.js b/routes/index.js
+index 06453e1..b760749 100644
+--- a/routes/index.js
++++ b/routes/index.js
+@@ -1,17 +1,23 @@
+ const router = require("express").Router();
+-const { createUser, login } = require("../controllers/user");
++const { createUser, login, getPublicUser } = require("../controllers/user");
+ const NotFoundError = require("../errors/NotFoundError");
+ const auth = require("../middlewares/auth");
+-const { validateUserCreation, validateLogin } = require('../middlewares/validation');
++const { validateUserCreation, validateLogin, validateId } = require('../middlewares/validation');
+ 
+ 
+ router.post("/signin", validateLogin, login);
+ router.post("/signup", validateUserCreation, createUser);
+ 
++// Public profile card — must be registered BEFORE the auth-guarded /users
++// router below, and carries no auth middleware of its own.
++router.get("/users/:id/public", validateId, getPublicUser);
++
+ router.use("/users", auth, require("./user"));
+ router.use("/items",  require("./clothingItem"));
+ router.use("/favorites", auth, require("./favorite"));
+ router.use("/gallery", auth, require("./galleryItem"));
++router.use("/fits", require("./fit"));
++router.use("/battles", require("./battle"));
+ 
+ router.use((req, res, next) => {
+   next(new NotFoundError('The route you are trying to access does not exist'));
+diff --git a/utils/pagination.js b/utils/pagination.js
+new file mode 100644
+index 0000000..1dd6057
+--- /dev/null
++++ b/utils/pagination.js
+@@ -0,0 +1,10 @@
++// Shared limit/page parsing for public list endpoints.
++// Defaults: limit 20, page 1. Limit is capped at 50.
++module.exports.parsePagination = (query) => {
++  let limit = parseInt(query.limit, 10);
++  let page = parseInt(query.page, 10);
++  if (Number.isNaN(limit) || limit < 1) limit = 20;
++  if (limit > 50) limit = 50;
++  if (Number.isNaN(page) || page < 1) page = 1;
++  return { limit, page };
++};

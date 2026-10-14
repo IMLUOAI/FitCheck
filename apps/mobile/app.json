@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#05060F",
+        "foregroundImage": "./assets/adaptive-icon-foreground.png"
+      },
+      "package": "com.dripcast.app"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "icon": "./assets/icon.png",
+    "ios": {
+      "bundleIdentifier": "com.dripcast.app",
+      "supportsTablet": true
+    },
+    "name": "DripCast",
+    "newArchEnabled": true,
+    "orientation": "portrait",
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#05060F",
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "DripCast uses your location to recommend outfits for the weather where you are.",
+          "locationWhenInUsePermission": "DripCast uses your location to recommend outfits for the weather where you are."
+        }
+      ],
+      "expo-sharing"
+    ],
+    "scheme": "dripcast",
+    "slug": "dripcast",
+    "userInterfaceStyle": "dark",
+    "version": "1.0.0",
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

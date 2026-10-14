@@ -1,0 +1,8 @@
+{
+  "description": "DripCast cyberpunk dark-theme design tokens.",
+  "main": "./src/index.ts",
+  "name": "@dripcast/theme",
+  "private": true,
+  "types": "./src/index.ts",
+  "version": "0.1.0"
+}
