@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
+import type { ViewInstance } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { captureRef } from "react-native-view-shot";
@@ -14,10 +15,13 @@ import {
 } from "../lib/outfit";
 import { FitCheckCard } from "./FitCheckCard";
 import { Paywall } from "./Paywall";
+import { ShopButton } from "./ShopButton";
 import { usePalette } from "../store/theme";
 import { useAuthStore } from "../store/auth";
 import { useIsPro } from "../store/useSubscription";
 import { useCreateFit, useFits, isBackendMissing } from "../hooks/useSocial";
+import { useLaundry } from "../hooks/useLaundry";
+import { usePersona } from "../hooks/usePersona";
 import { FREE_FIT_LIMIT } from "../lib/pro-limits";
 
 interface TodaysFitProps {
@@ -45,17 +49,29 @@ export function TodaysFit({ items, bucket, weather }: TodaysFitProps) {
   const [saveOk, setSaveOk] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const palette = usePalette();
-  const cardRef = useRef<View>(null);
+  const cardRef = useRef<ViewInstance>(null);
   const createFit = useCreateFit();
   const userId = useAuthStore((s) => s.user?._id);
   const isPro = useIsPro();
   const myFits = useFits(userId);
+  const { dirtyIds } = useLaundry();
+  const { persona } = usePersona();
 
   if (items.length === 0) {
     return null;
   }
 
-  const { slots } = assembleOutfit(items, seed, weather.condition);
+  // Prefer clean pieces; never leave the user with nothing to wear.
+  const cleanItems = items.filter((item) => !dirtyIds.has(item._id));
+  const outfitItems = cleanItems.length >= 3 ? cleanItems : items;
+  const skippedDirty = outfitItems === items ? 0 : items.length - cleanItems.length;
+
+  const { slots } = assembleOutfit(
+    outfitItems,
+    seed,
+    weather.condition,
+    persona?.keywords ?? null,
+  );
   const note = conditionNote(weather.condition);
   const filledIds = SLOT_ORDER.map((slot) => slots[slot]).filter(
     (item): item is ClothingItem => item !== null,
@@ -143,6 +159,19 @@ export function TodaysFit({ items, bucket, weather }: TodaysFitProps) {
                 style={{ color: palette.neonPink }}
               >
                 {note}
+              </Text>
+            </View>
+          ) : null}
+          {persona ? (
+            <View
+              className="rounded-full px-2.5 py-1"
+              style={{ backgroundColor: `${palette.neonCyan}26` }}
+            >
+              <Text
+                className="text-xs font-bold"
+                style={{ color: palette.neonCyan }}
+              >
+                {persona.emoji} {persona.label} picks
               </Text>
             </View>
           ) : null}
@@ -237,12 +266,21 @@ export function TodaysFit({ items, bucket, weather }: TodaysFitProps) {
                 <Text className="text-xs font-bold text-muted">{SLOT_LABELS[slot]}</Text>
               </View>
             </View>
+            <ShopButton itemName={item.name} />
           </View>
         );
       })}
 
       {/* Hidden off-screen render of the share card. Always mounted (laid out
           but invisible) so captureRef can snapshot it on demand. */}
+      {skippedDirty > 0 ? (
+        <Pressable onPress={() => router.push("/(tabs)/closet")} hitSlop={6} className="mb-2">
+          <Text className="text-sm text-muted">
+            Skipped {skippedDirty} dirty {skippedDirty === 1 ? "piece" : "pieces"} —{" "}
+            <Text className="font-semibold text-neon-pink">laundry day?</Text>
+          </Text>
+        </Pressable>
+      ) : null}
       <View style={{ position: "absolute", top: -10000, left: 0 }} collapsable={false}>
         <View ref={cardRef} collapsable={false}>
           <FitCheckCard

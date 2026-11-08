@@ -5,6 +5,7 @@ import { Screen } from "../../src/components/Screen";
 import { TextField } from "../../src/components/TextField";
 import { Button } from "../../src/components/Button";
 import { useAuthStore } from "../../src/store/auth";
+import { validateDob } from "../../src/lib/dob";
 
 export default function SignUp() {
   const router = useRouter();
@@ -12,19 +13,32 @@ export default function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [avatar, setAvatar] = useState("");
+  const [dob, setDob] = useState("");
   const [busy, setBusy] = useState(false);
   const signUp = useAuthStore((s) => s.signUp);
   const error = useAuthStore((s) => s.error);
   const clearError = useAuthStore((s) => s.clearError);
 
+  const dobError = dob.length > 0 ? validateDob(dob) : null;
   const canSubmit =
-    name.trim().length >= 2 && email.trim().length > 0 && password.length >= 6 && !busy;
+    name.trim().length >= 2 &&
+    email.trim().length > 0 &&
+    password.length >= 6 &&
+    dobError === null &&
+    dob.length > 0 &&
+    !busy;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setBusy(true);
     try {
-      await signUp({ name: name.trim(), email: email.trim(), password, avatar });
+      await signUp({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        avatar,
+        dob: dob.trim(),
+      });
       router.replace("/(tabs)/home");
     } catch {
       // Error text is surfaced from the store.
@@ -81,6 +95,18 @@ export default function SignUp() {
             placeholder="At least 6 characters"
             secureTextEntry
             autoCapitalize="none"
+          />
+          <TextField
+            label="Date of birth"
+            value={dob}
+            onChangeText={(t) => {
+              setDob(t);
+              clearError();
+            }}
+            placeholder="YYYY-MM-DD"
+            keyboardType="numbers-and-punctuation"
+            autoCapitalize="none"
+            error={dobError}
           />
           <TextField
             label="Avatar URL (optional)"

@@ -23,8 +23,7 @@
       "bundleIdentifier": "com.dripcast.app",
       "supportsTablet": true
     },
-    "name": "DripCast",
-    "newArchEnabled": true,
+    "name": "FitCheck",
     "orientation": "portrait",
     "plugins": [
       "expo-router",
@@ -43,7 +42,9 @@
           "locationWhenInUsePermission": "DripCast uses your location to recommend outfits for the weather where you are."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-secure-store",
+      "expo-status-bar"
     ],
     "scheme": "dripcast",
     "slug": "dripcast",

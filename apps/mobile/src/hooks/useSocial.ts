@@ -3,10 +3,15 @@ import { ApiError } from "@dripcast/api";
 import type {
   Battle,
   BattlePick,
+  Comment,
   CreateBattleInput,
+  CreateCommentInput,
   CreateFitInput,
+  CreatePostInput,
   Fit,
+  GalleryItem,
   GetBattlesParams,
+  Post,
 } from "@dripcast/api";
 import { api } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
@@ -32,6 +37,14 @@ export function useFits(owner?: string) {
   return useQuery({
     queryKey: owner ? queryKeys.fitsByOwner(owner) : queryKeys.fits,
     queryFn: () => api.getFits(owner ? { owner, limit: 20 } : { limit: 20 }),
+  });
+}
+
+/** Full fit history (up to 500) for the calendar view. */
+export function useFitHistory(owner?: string) {
+  return useQuery({
+    queryKey: ["fits", "history", owner ?? "all"],
+    queryFn: () => api.getFits(owner ? { owner, limit: 500 } : { limit: 500 }),
   });
 }
 
@@ -123,4 +136,152 @@ export function useCreateBattle() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.battles("open") });
     },
   });
+}
+
+/** Comments on one fit, post or album photo, oldest first. Pass enabled=false to hold the fetch. */
+export function useComments(targetType: "fit" | "post" | "gallery", targetId: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.comments(targetType, targetId),
+    queryFn: () => api.getComments({ targetType, targetId, limit: 50 }),
+    enabled,
+  });
+}
+
+/** Post a comment; refreshes the thread and the target's count. */
+export function useAddComment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateCommentInput) => {
+      requireAuth();
+      return api.addComment(input);
+    },
+    onSuccess: (comment) => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.comments(comment.targetType, comment.targetId),
+      });
+      void queryClient.invalidateQueries({ queryKey: ["fits"] });
+      void queryClient.invalidateQueries({ queryKey: ["posts"] });
+      void queryClient.invalidateQueries({ queryKey: ["gallery"] });
+    },
+  });
+}
+
+/** Delete a comment (own, or on your own fit/post/album photo). */
+export function useDeleteComment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: string; targetType: "fit" | "post" | "gallery"; targetId: string }) => {
+      requireAuth();
+      return api.deleteComment(vars.id);
+    },
+    onSuccess: (_data, vars) => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.comments(vars.targetType, vars.targetId),
+      });
+      void queryClient.invalidateQueries({ queryKey: ["fits"] });
+      void queryClient.invalidateQueries({ queryKey: ["posts"] });
+      void queryClient.invalidateQueries({ queryKey: ["gallery"] });
+    },
+  });
+}
+
+/** Public album photos from other users (Discover), newest first. */
+export function usePublicGallery() {
+  return useQuery({
+    queryKey: queryKeys.publicGallery,
+    queryFn: () => api.getPublicGallery(),
+  });
+}
+
+/** Flip one of your album photos public/private, updating cached lists in place. */
+export function useSetGalleryVisibility() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: string; isPublic: boolean }) => {
+      requireAuth();
+      return api.setGalleryVisibility(vars.id, vars.isPublic);
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData<GalleryItem[]>(queryKeys.gallery, (prev) =>
+        (prev ?? []).map((g) => (g._id === updated._id ? updated : g)),
+      );
+      void queryClient.invalidateQueries({ queryKey: queryKeys.publicGallery });
+    },
+  });
+}
+
+/** Toggle like on a public album photo, updating the cached Discover feed in place. */
+export function useLikeGalleryItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (item: GalleryItem) => {
+      const userId = requireAuth();
+      return item.likes.includes(userId)
+        ? api.unlikeGalleryItem(item._id)
+        : api.likeGalleryItem(item._id);
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData<GalleryItem[]>(queryKeys.publicGallery, (prev) =>
+        (prev ?? []).map((g) => (g._id === updated._id ? updated : g)),
+      );
+    },
+  });
+}
+export function usePosts(owner?: string) {
+  return useQuery({
+    queryKey: owner ? queryKeys.postsByOwner(owner) : queryKeys.posts,
+    queryFn: () => api.getPosts(owner ? { owner, limit: 20 } : { limit: 20 }),
+  });
+}
+
+/** Share a shelf item to the community. */
+export function useCreatePost() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreatePostInput) => {
+      requireAuth();
+      return api.createPost(input);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.posts });
+    },
+  });
+}
+
+/** Delete one of your shelf posts (and its comments). */
+export function useDeletePost() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => {
+      requireAuth();
+      return api.deletePost(id);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.posts });
+    },
+  });
+}
+
+/** Toggle like on a shelf post, updating cached feeds in place. */
+export function useLikePost() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (post: Post) => {
+      const userId = requireAuth();
+      return post.likes.includes(userId)
+        ? api.unlikePost(post._id)
+        : api.likePost(post._id);
+    },
+    onSuccess: (updated) => {
+      for (const key of [queryKeys.posts, queryKeys.postsByOwner(postOwnerOf(updated))]) {
+        queryClient.setQueryData<Post[]>(key, (prev) =>
+          (prev ?? []).map((p) => (p._id === updated._id ? updated : p)),
+        );
+      }
+    },
+  });
+}
+
+function postOwnerOf(post: Post): string {
+  return typeof post.owner === "string" ? post.owner : post.owner._id;
 }

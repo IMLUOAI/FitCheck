@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { themes, type ThemeName } from "@dripcast/theme";
 
 interface ThemeState {
-  /** Active theme. Defaults to cyber (signature neon-dark). */
+  /** Active theme. Defaults to blush (warm cream-pink light). */
   theme: ThemeName;
   setTheme: (theme: ThemeName) => void;
 }
@@ -12,11 +12,11 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      theme: "cyber",
+      theme: "blush",
       setTheme: (theme) => set({ theme }),
     }),
     {
-      name: "dripcast-theme",
+      name: "fitcheck-theme",
       storage: createJSONStorage(() => AsyncStorage),
     },
   ),

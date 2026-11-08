@@ -3,11 +3,12 @@ import type { ThemeName } from "@dripcast/theme";
 import { useThemeStore } from "../store/theme";
 
 const OPTIONS: ReadonlyArray<{ label: string; value: ThemeName }> = [
+  { label: "Blush", value: "blush" },
   { label: "Cyber", value: "cyber" },
   { label: "Clean", value: "clean" },
 ];
 
-/** Compact Cyber/Clean segmented toggle for the home header. */
+/** Compact theme segmented toggle for the home header. */
 export function ThemeToggle() {
   const theme = useThemeStore((s) => s.theme);
   const setTheme = useThemeStore((s) => s.setTheme);

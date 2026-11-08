@@ -1,3 +1,4 @@
+import * as Location from "expo-location";
 import type { WeatherBucket } from "@dripcast/api";
 
 /** Plano, TX — used when the device denies location or has no GPS. */
@@ -5,6 +6,38 @@ export const FALLBACK_LOCATION: { latitude: number; longitude: number } = {
   latitude: 33.0198,
   longitude: -96.6989,
 };
+
+export interface Coords {
+  latitude: number;
+  longitude: number;
+  usedFallbackLocation: boolean;
+}
+
+/**
+ * Device coordinates with graceful fallback: asks for foreground location
+ * permission, falls back to Plano, TX when denied or when GPS fails.
+ * Safe to call from multiple queries — after the first grant the OS
+ * resolves without prompting again.
+ */
+export async function getCoords(): Promise<Coords> {
+  let latitude = FALLBACK_LOCATION.latitude;
+  let longitude = FALLBACK_LOCATION.longitude;
+  let usedFallbackLocation = true;
+  const { status } = await Location.requestForegroundPermissionsAsync();
+  if (status === Location.PermissionStatus.GRANTED) {
+    try {
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      latitude = position.coords.latitude;
+      longitude = position.coords.longitude;
+      usedFallbackLocation = false;
+    } catch {
+      // GPS failed — keep the fallback so the screen still renders.
+    }
+  }
+  return { latitude, longitude, usedFallbackLocation };
+}
 
 /**
  * Bucket logic shared with the web app:

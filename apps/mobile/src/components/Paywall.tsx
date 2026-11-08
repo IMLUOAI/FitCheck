@@ -11,7 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import type { PurchasesOffering, PurchasesPackage } from "react-native-purchases";
 import { usePalette } from "../store/theme";
-import { useSubscriptionStore } from "../store/useSubscription";
+import { useSubscriptionStore, useTrial } from "../store/useSubscription";
 import {
   getCurrentOffering,
   isUserCancelled,
@@ -24,9 +24,12 @@ const TERMS_URL = "https://dripcast.app/terms";
 const PRIVACY_URL = "https://dripcast.app/privacy";
 
 const PERKS = [
-  { icon: "bookmark", title: "Unlimited saved fits", subtitle: "Keep every outfit you love, forever" },
-  { icon: "trophy", title: "Unlimited fit battles", subtitle: "Start as many battles as you want, every day" },
-  { icon: "sparkles", title: "First dibs on new drops", subtitle: "New DripCast features land for Pro first" },
+  { icon: "sparkles", title: "All 7 style worlds", subtitle: "Every vibe, from Streetwear to Old Money" },
+  { icon: "airplane", title: "Unlimited saved trips", subtitle: "Pack for every getaway, forecast included" },
+  { icon: "images", title: "Hero album shuffle", subtitle: "Your photos as the home banner" },
+  { icon: "trophy", title: "Full battle seasons history", subtitle: "Browse every past season's leaderboard" },
+  { icon: "shuffle", title: "Unlimited reshuffles", subtitle: "Re-roll outfits as much as you want" },
+  { icon: "ban", title: "Ad-free", subtitle: "Nothing between you and your fits" },
 ] as const;
 
 /** Fallback package rows when the RevenueCat offering fails to load. */
@@ -48,6 +51,7 @@ function priceFor(pkg: PurchasesPackage): string {
 
 export function Paywall({ visible, onClose, contextMessage }: PaywallProps) {
   const palette = usePalette();
+  const trial = useTrial();
   const [offering, setOffering] = useState<PurchasesOffering | null>(null);
   const [offeringError, setOfferingError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -143,9 +147,35 @@ export function Paywall({ visible, onClose, contextMessage }: PaywallProps) {
               Go <Text className="text-neon-pink">Pro</Text>
             </Text>
             <Text className="mt-2 text-center text-sm text-muted">
-              Unlock the full DripCast experience.
+              Unlock the full FitCheck experience.
             </Text>
           </View>
+
+          {trial.active && trial.daysLeft !== null ? (
+            <View
+              className="mb-4 mt-4 rounded-xl border p-3"
+              style={{ borderColor: palette.neonPink, backgroundColor: `${palette.neonPink}1A` }}
+            >
+              <Text className="text-center text-sm font-bold text-text">
+                You&apos;re on a free trial — {trial.daysLeft}{" "}
+                {trial.daysLeft === 1 ? "day" : "days"} of Pro left.
+              </Text>
+              <Text className="mt-0.5 text-center text-xs text-muted">
+                Subscribe now to keep Pro going after the trial ends.
+              </Text>
+            </View>
+          ) : !trial.active && trial.endsAt !== null ? (
+            <View
+              className="mb-4 mt-4 rounded-xl border border-line bg-panel-raised p-3"
+            >
+              <Text className="text-center text-sm font-bold text-text">
+                Your 15-day free trial has ended.
+              </Text>
+              <Text className="mt-0.5 text-center text-xs text-muted">
+                Subscribe below to keep Pro unlocked.
+              </Text>
+            </View>
+          ) : null}
 
           {contextMessage ? (
             <View

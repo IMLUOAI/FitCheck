@@ -36,8 +36,8 @@ export default function TabLayout() {
         options={{ title: "Closet", tabBarIcon: tabIcon("shirt") }}
       />
       <Tabs.Screen
-        name="favorites"
-        options={{ title: "Saved", tabBarIcon: tabIcon("heart") }}
+        name="shelf"
+        options={{ title: "Shelf", tabBarIcon: tabIcon("book") }}
       />
       <Tabs.Screen
         name="album"
@@ -45,7 +45,19 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="battles"
-        options={{ title: "Battles", tabBarIcon: tabIcon("trophy") }}
+        options={{ title: "Community", tabBarIcon: tabIcon("people") }}
+      />
+      <Tabs.Screen
+        name="oils"
+        options={{ title: "Oils", tabBarIcon: tabIcon("leaf") }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{ title: "History", tabBarIcon: tabIcon("calendar") }}
+      />
+      <Tabs.Screen
+        name="trips"
+        options={{ title: "Trips", tabBarIcon: tabIcon("airplane") }}
       />
     </Tabs>
   );

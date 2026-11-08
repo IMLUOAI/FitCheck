@@ -1,4 +1,3 @@
 /// <reference types="expo/types" />
 
-// Expo's generated env types; committed so `tsc --noEmit` works before the
-// first `expo start` run. Safe to let Expo regenerate this file.
+// NOTE: This file should not be edited and should be in your git ignore

@@ -20,11 +20,15 @@ import { Button } from "../src/components/Button";
 import { TextField } from "../src/components/TextField";
 import { EmptyState } from "../src/components/EmptyState";
 import { useAuthStore } from "../src/store/auth";
+import { useIsPro, useSubscriptionStore } from "../src/store/useSubscription";
+import { Paywall } from "../src/components/Paywall";
+import { validateDob } from "../src/lib/dob";
 import { getBaseUrl, api } from "../src/lib/api";
 import { queryKeys } from "../src/lib/queryKeys";
 import { useFits, isBackendMissing } from "../src/hooks/useSocial";
+import { CommentSheet } from "../src/components/CommentSheet";
 import { usePalette } from "../src/store/theme";
-import { fitDisplayItems } from "@dripcast/api";
+import { fitDisplayItems, fitOwnerId } from "@dripcast/api";
 import type { Fit } from "@dripcast/api";
 
 function EditProfileModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -91,6 +95,7 @@ export default function Profile() {
 
 function FitGridCard({ fit }: { fit: Fit }) {
   const palette = usePalette();
+  const [showComments, setShowComments] = useState(false);
   const thumbs = fitDisplayItems(fit).slice(0, 4);
   return (
     <View className="mb-3 flex-1 rounded-2xl border border-line bg-panel p-3">
@@ -111,9 +116,20 @@ function FitGridCard({ fit }: { fit: Fit }) {
       </View>
       <View className="mt-2 flex-row items-center justify-between">
         <Text className="text-xs font-bold capitalize text-muted">{fit.weather} fit</Text>
-        <View className="flex-row items-center gap-1">
-          <Ionicons name="heart" size={12} color={palette.neonPink} />
-          <Text className="text-xs font-bold text-text">{fit.likes.length}</Text>
+        <View className="flex-row items-center gap-3">
+          <View className="flex-row items-center gap-1">
+            <Ionicons name="heart" size={12} color={palette.neonPink} />
+            <Text className="text-xs font-bold text-text">{fit.likes.length}</Text>
+          </View>
+          <Pressable
+            onPress={() => setShowComments(true)}
+            hitSlop={8}
+            className="flex-row items-center gap-1"
+            accessibilityLabel="View comments"
+          >
+            <Ionicons name="chatbubble-outline" size={12} color={palette.muted} />
+            <Text className="text-xs font-bold text-text">{fit.commentCount ?? 0}</Text>
+          </Pressable>
         </View>
       </View>
       {fit.note ? (
@@ -121,6 +137,14 @@ function FitGridCard({ fit }: { fit: Fit }) {
           {fit.note}
         </Text>
       ) : null}
+      <CommentSheet
+        visible={showComments}
+        onClose={() => setShowComments(false)}
+        targetType="fit"
+        targetId={fit._id}
+        targetOwnerId={fitOwnerId(fit)}
+        title="Comments"
+      />
     </View>
   );
 }
@@ -140,7 +164,7 @@ function PublicProfileView({ userId }: { userId: string }) {
     setShareError(null);
     try {
       await Share.share({
-        message: `Check out ${profile.data?.name ?? "this stylist"}'s fits on DripCast`,
+        message: `Check out ${profile.data?.name ?? "this stylist"}'s fits on FitCheck`,
       });
     } catch {
       setShareError("Couldn't open the share sheet.");
@@ -241,8 +265,36 @@ function OwnProfileView() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const signOut = useAuthStore((s) => s.signOut);
+  const updateDob = useAuthStore((s) => s.updateDob);
   const [editOpen, setEditOpen] = useState(false);
+  const [editingDob, setEditingDob] = useState(false);
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const isPro = useIsPro();
+  const expirationDate = useSubscriptionStore((s) => s.expirationDate);  const [dobInput, setDobInput] = useState("");
+  const [dobError, setDobError] = useState<string | null>(null);
+  const [dobBusy, setDobBusy] = useState(false);
   const appVersion = Constants.expoConfig?.version ?? "1.0.0";
+
+  const dobDisplay = user?.dob ? user.dob.slice(0, 10) : null;
+
+  const handleSaveDob = async () => {
+    const err = validateDob(dobInput);
+    if (err) {
+      setDobError(err);
+      return;
+    }
+    setDobBusy(true);
+    setDobError(null);
+    try {
+      await updateDob(dobInput.trim());
+      setEditingDob(false);
+      setDobInput("");
+    } catch {
+      setDobError("Couldn't save birthday. Try again.");
+    } finally {
+      setDobBusy(false);
+    }
+  };
 
   const confirmSignOut = () => {
     Alert.alert("Sign out?", "You'll need your email and password to sign back in.", [
@@ -300,12 +352,96 @@ function OwnProfileView() {
               {getBaseUrl().replace("https://", "")}
             </Text>
           </View>
+          <View className="mt-2 flex-row items-center justify-between">
+            <Text className="text-sm text-muted">Birthday</Text>
+            {dobDisplay ? (
+              <Text className="text-sm font-semibold text-text">{dobDisplay}</Text>
+            ) : editingDob ? null : (
+              <Pressable
+                onPress={() => {
+                  setDobInput("");
+                  setDobError(null);
+                  setEditingDob(true);
+                }}
+                hitSlop={8}
+              >
+                <Text className="text-sm font-bold text-neon-cyan">Not set — add it</Text>
+              </Pressable>
+            )}
+          </View>
+          {editingDob ? (
+            <View className="mt-3">
+              <TextField
+                label="Date of birth"
+                value={dobInput}
+                onChangeText={(t) => {
+                  setDobInput(t);
+                  setDobError(null);
+                }}
+                placeholder="YYYY-MM-DD"
+                keyboardType="numbers-and-punctuation"
+                autoCapitalize="none"
+                error={dobError}
+              />
+              <View className="flex-row gap-2">
+                <View className="flex-1">
+                  <Button
+                    title="Save"
+                    onPress={() => void handleSaveDob()}
+                    loading={dobBusy}
+                    disabled={dobBusy}
+                  />
+                </View>
+                <View className="flex-1">
+                  <Button
+                    title="Cancel"
+                    variant="secondary"
+                    onPress={() => setEditingDob(false)}
+                    disabled={dobBusy}
+                  />
+                </View>
+              </View>
+            </View>
+          ) : null}
         </View>
+
+        {isPro ? (
+          <View
+            className="mb-3 flex-row items-center rounded-2xl border bg-panel p-4"
+            style={{ borderColor: palette.neonPink }}
+          >
+            <Ionicons name="sparkles" size={22} color={palette.neonPink} />
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-black text-text">FitCheck Pro ✓</Text>
+              <Text className="text-xs text-muted">
+                {expirationDate ? `Renews ${expirationDate.slice(0, 10)}` : "Active"}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => setPaywallOpen(true)}
+            hitSlop={6}
+            accessibilityLabel="Go Premium"
+            className="mb-3 flex-row items-center rounded-2xl border bg-panel p-4"
+            style={{ borderColor: palette.neonPink }}
+          >
+            <Ionicons name="sparkles" size={22} color={palette.neonPink} />
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-black text-text">Go Premium</Text>
+              <Text className="text-xs text-muted">
+                Unlock all Pro features — $2.99/mo or $19.99/yr
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={palette.muted} />
+          </Pressable>
+        )}
 
         <Button title="Sign out" variant="danger" onPress={confirmSignOut} />
       </ScrollView>
 
       <EditProfileModal visible={editOpen} onClose={() => setEditOpen(false)} />
+      <Paywall visible={paywallOpen} onClose={() => setPaywallOpen(false)} />
     </Screen>
   );
 }

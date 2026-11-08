@@ -69,9 +69,9 @@ function AuthGate() {
 }
 
 /**
- * Applies the active theme: the `theme-clean` class swaps every CSS-variable
- * design token for the whole tree, and the status bar + navigator background
- * follow the palette.
+ * Applies the active theme: the `theme-clean` / `theme-blush` class swaps
+ * every CSS-variable design token for the whole tree, and the status bar +
+ * navigator background follow the palette.
  */
 function ThemedRoot({ children }: { children: ReactNode }) {
   const theme = useThemeStore((s) => s.theme);
@@ -79,10 +79,10 @@ function ThemedRoot({ children }: { children: ReactNode }) {
 
   return (
     <View
-      className={theme === "clean" ? "theme-clean flex-1" : "flex-1"}
+      className={theme === "cyber" ? "flex-1" : `theme-${theme} flex-1`}
       style={{ flex: 1, backgroundColor: palette.void }}
     >
-      <StatusBar style={theme === "clean" ? "dark" : "light"} />
+      <StatusBar style={theme === "cyber" ? "light" : "dark"} />
       {children}
     </View>
   );

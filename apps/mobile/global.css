@@ -1,14 +1,18 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /*
  * Runtime theme tokens. `:root` carries the default cyberpunk palette;
  * `.theme-clean` (toggled on the root view by the theme store) overrides
- * every token with the light minimal palette.
+ * every token with the light minimal palette, and `.theme-blush` with the
+ * warm cream-pink palette.
  *
- * Tailwind utilities reference these variables via @theme below, so every
- * `bg-void` / `text-text` / `border-line` / `bg-neon-pink` class follows the
- * active theme with zero component changes. Inline styles and icon colors
- * use the `usePalette()` hook instead (same token names, from @dripcast/theme).
+ * Tailwind utilities reference these variables via the colors in
+ * tailwind.config.js, so every `bg-void` / `text-text` / `border-line` /
+ * `bg-neon-pink` class follows the active theme with zero component
+ * changes. Inline styles and icon colors use the `usePalette()` hook
+ * instead (same token names, from @dripcast/theme).
  */
 :root {
   --dc-void: #05060f;
@@ -48,21 +52,21 @@
   --dc-success: #2f9e44;
 }
 
-@theme {
-  --color-void: var(--dc-void);
-  --color-panel: var(--dc-panel);
-  --color-panel-raised: var(--dc-panel-raised);
-  --color-line: var(--dc-line);
-  --color-text: var(--dc-text);
-  --color-muted: var(--dc-muted);
-  --color-faint: var(--dc-faint);
-  --color-neon-pink: var(--dc-neon-pink);
-  --color-neon-cyan: var(--dc-neon-cyan);
-  --color-neon-purple: var(--dc-neon-purple);
-  --color-acid: var(--dc-acid);
-  --color-hot: var(--dc-hot);
-  --color-warm: var(--dc-warm);
-  --color-cold: var(--dc-cold);
-  --color-danger: var(--dc-danger);
-  --color-success: var(--dc-success);
+.theme-blush {
+  --dc-void: #fbf7f4;
+  --dc-panel: #ffffff;
+  --dc-panel-raised: #f7edea;
+  --dc-line: #edddd9;
+  --dc-text: #241a1e;
+  --dc-muted: #756169;
+  --dc-faint: #b09a9f;
+  --dc-neon-pink: #be4b6b;
+  --dc-neon-cyan: #4a6b84;
+  --dc-neon-purple: #8a5568;
+  --dc-acid: #efc3ce;
+  --dc-hot: #e8590c;
+  --dc-warm: #d9a012;
+  --dc-cold: #1971c2;
+  --dc-danger: #e03131;
+  --dc-success: #2f9e44;
 }

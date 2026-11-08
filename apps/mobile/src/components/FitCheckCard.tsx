@@ -43,7 +43,7 @@ export function FitCheckCard({ outfit, bucket, tempF, condition, city }: FitChec
       {/* Top: wordmark + date */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <Text style={{ fontSize: 28, fontWeight: "900", letterSpacing: 1, color: palette.text }}>
-          DRIP<Text style={{ color: palette.neonPink }}>CAST</Text>
+          FIT<Text style={{ color: palette.neonPink }}>CHECK</Text>
         </Text>
         <Text style={{ fontSize: 18, fontWeight: "600", color: palette.muted }}>{date}</Text>
       </View>
@@ -139,7 +139,7 @@ export function FitCheckCard({ outfit, bucket, tempF, condition, city }: FitChec
       {/* Bottom: branding + bucket accent bar */}
       <View style={{ marginTop: "auto", paddingTop: 16 }}>
         <Text style={{ textAlign: "center", fontSize: 17, fontWeight: "600", color: palette.muted }}>
-          Styled with DripCast
+          Styled with FitCheck
         </Text>
         <View style={{ marginTop: 10, height: 8, borderRadius: 4, backgroundColor: accent }} />
       </View>

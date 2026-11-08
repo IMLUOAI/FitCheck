@@ -20,12 +20,17 @@ function defaultAvatar(name: string): string {
 
 function friendlyError(err: unknown): string {
   if (err instanceof ApiError) {
+    let parsedMessage: string | undefined;
     try {
-      const parsed = JSON.parse(err.body) as { message?: string };
-      if (parsed.message) return parsed.message;
+      parsedMessage = (JSON.parse(err.body) as { message?: string }).message;
     } catch {
       // fall through to generic message
     }
+    // Birthday-gate: surface a human message for dob validation failures.
+    if (err.status === 400 && parsedMessage && /dob|birth/i.test(parsedMessage)) {
+      return "Enter a valid birthday in the past.";
+    }
+    if (parsedMessage) return parsedMessage;
     if (err.status === 401) return "Incorrect email or password.";
     if (err.status === 409) return "An account with this email already exists.";
     return `Something went wrong (${err.status}).`;
@@ -46,6 +51,7 @@ interface AuthState {
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateProfile: (input: UpdateProfileInput) => Promise<void>;
+  updateDob: (dob: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -130,6 +136,18 @@ export const useAuthStore = create<AuthState>()((set) => ({
     const user = await api.updateMe(input);
     set({ user });
     queryClient.setQueryData(queryKeys.me, user);
+  },
+
+  updateDob: async (dob: string) => {
+    set({ error: null });
+    try {
+      const user = await api.updateDob(dob);
+      set({ user });
+      queryClient.setQueryData(queryKeys.me, user);
+    } catch (err) {
+      set({ error: friendlyError(err) });
+      throw err;
+    }
   },
 
   clearError: () => set({ error: null }),

@@ -40,7 +40,7 @@ export default function SignIn() {
           keyboardShouldPersistTaps="handled"
         >
           <Text className="mb-1 text-4xl font-black tracking-tight text-text">
-            DRIP<Text className="text-neon-pink">CAST</Text>
+            FIT<Text className="text-neon-pink">CHECK</Text>
           </Text>
           <Text className="mb-8 text-base text-muted">
             Your closet, tuned to the sky. Sign in to get today's fit.

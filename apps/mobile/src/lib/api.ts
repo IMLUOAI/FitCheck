@@ -14,6 +14,11 @@ export function setAuthToken(token: string | null): void {
   currentToken = token;
 }
 
+/** Current JWT (used by native uploaders that can't go through DripApi). */
+export function getAuthToken(): string | null {
+  return currentToken;
+}
+
 export function getBaseUrl(): string {
   return baseUrl;
 }

@@ -120,14 +120,18 @@ export function conditionNote(condition: string | undefined): string | null {
  * item, breaking ties with a seeded random choice. When `condition` maps to
  * a preference group (wet/snow), candidates matching the group's keywords
  * win per slot first, falling back to the plain pick when nothing matches.
- * Empty slots are backfilled from uncategorized ("other") items, also
- * seeded. Items already chosen are never reused; leftovers come back in
- * `unassigned`.
+ * An optional `personaPrefs` (per-slot keyword lists from a style persona)
+ * is merged in front of the condition keywords, so a persona steers picks
+ * toward its vibe while weather still applies. Pass null/undefined for the
+ * standard behavior. Empty slots are backfilled from uncategorized ("other")
+ * items, also seeded. Items already chosen are never reused; leftovers come
+ * back in `unassigned`.
  */
 export function assembleOutfit(
   items: ClothingItem[],
   seed: number,
   condition?: string,
+  personaPrefs?: Partial<Record<OutfitSlot, string[]>> | null,
 ): AssembledOutfit {
   const rand = mulberry32(seed);
   const group = conditionGroup(condition);
@@ -164,8 +168,12 @@ export function assembleOutfit(
     return leaders[Math.floor(rand() * leaders.length)];
   };
 
-  const preferForSlot = (slot: OutfitSlot): string[] | null =>
-    group ? (CONDITION_PREFERENCES[group][slot] ?? null) : null;
+  const preferForSlot = (slot: OutfitSlot): string[] | null => {
+    const persona = personaPrefs?.[slot] ?? [];
+    const cond = group ? (CONDITION_PREFERENCES[group][slot] ?? []) : [];
+    const merged = [...persona, ...cond];
+    return merged.length > 0 ? merged : null;
+  };
 
   const slots: Record<OutfitSlot, ClothingItem | null> = {
     tops: null,
