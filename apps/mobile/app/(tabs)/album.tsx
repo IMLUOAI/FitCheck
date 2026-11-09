@@ -441,14 +441,20 @@ export default function Album() {
       : activeItems[Math.min(viewerIndex, activeItems.length - 1)];
 
   const shareAlbumItem = (item: GalleryItem) => {
-    setShareDraft({
+    // Close the photo viewer BEFORE opening the share sheet: presenting the
+    // sheet while the viewer modal is still open leaves it hidden behind
+    // the viewer on iOS, so the tap looks dead. Give the viewer a beat to
+    // dismiss, then open the sheet over the plain Album screen.
+    const draft: SharePostDraft = {
       shelfType: "other",
       title: item.title || (item.kind === "photo" ? "Album photo" : "Album video"),
       coverUrl: item.kind === "photo" ? item.url : undefined,
       url: item.kind === "video" ? item.url : undefined,
       kindLabel: "Album",
       emoji: item.kind === "photo" ? "🖼️" : "🎬",
-    });
+    };
+    setViewerIndex(null);
+    setTimeout(() => setShareDraft(draft), 350);
   };
 
   const shareOut = (item: GalleryItem) => {
