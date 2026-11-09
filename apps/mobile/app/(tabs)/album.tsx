@@ -569,6 +569,13 @@ export default function Album() {
             <Ionicons name="share-outline" size={22} color={palette.muted} />
           </Pressable>
         </View>
+        <View className="mt-3">
+          <Button
+            title="Share to community"
+            variant="secondary"
+            onPress={() => shareAlbumItem(activeItem)}
+          />
+        </View>
       </View>
     ) : null;
 
@@ -612,6 +619,7 @@ export default function Album() {
         galleryQuery.isPending ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator color={palette.neonPink} />
+            <Text className="mt-3 text-sm text-muted">Loading your album…</Text>
           </View>
         ) : galleryQuery.isError ? (
           <EmptyState
@@ -643,6 +651,7 @@ export default function Album() {
       ) : publicQuery.isPending ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={palette.neonPink} />
+          <Text className="mt-3 text-sm text-muted">Loading Discover…</Text>
         </View>
       ) : publicQuery.isError ? (
         <EmptyState

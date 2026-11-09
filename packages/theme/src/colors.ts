@@ -75,9 +75,42 @@ export const cleanColors = {
   success: "#2F9E44",
 } as const;
 
+export const blushColors = {
+  /** App background — warm cream. */
+  void: "#FBF7F4",
+  /** Card / panel surface. */
+  panel: "#FFFFFF",
+  /** Raised surface (modals, pressed states) — blush-tinted. */
+  panelRaised: "#F7EDEA",
+  /** Hairline borders on light surfaces — warm blush. */
+  line: "#EDDCD9",
+  /** Primary text — warm near-black with a hint of plum. */
+  text: "#241A1E",
+  /** Secondary text — warm mauve grey. */
+  muted: "#756169",
+  /** Faint text / placeholders. */
+  faint: "#B09A9F",
+
+  /** Brand accents — elegant cream pink, deepened for contrast on light. */
+  neonPink: "#BE4B6B",
+  neonCyan: "#4A6B84",
+  neonPurple: "#8A5568",
+  acid: "#EFC3CE",
+
+  /** Weather-bucket accents, deepened for contrast on white. */
+  hot: "#E8590C",
+  warm: "#D9A012",
+  cold: "#1971C2",
+
+  /** Semantic. */
+  danger: "#E03131",
+  success: "#2F9E44",
+} as const;
+
 export const themes = {
   cyber: cyberColors,
   clean: cleanColors,
+  blush: blushColors,
 } as const;
 
 export type ThemeName = keyof typeof themes;

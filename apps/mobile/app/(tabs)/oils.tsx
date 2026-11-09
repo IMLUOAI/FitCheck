@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   FlatList,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -12,8 +13,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { Screen } from "../../src/components/Screen";
 import { EmptyState } from "../../src/components/EmptyState";
 import { SegmentedControl } from "../../src/components/SegmentedControl";
+import {
+  ShareToCommunityModal,
+  type SharePostDraft,
+} from "../../src/components/ShareToCommunityModal";
 import { usePalette } from "../../src/store/theme";
 import { OILS, type Oil } from "../../src/lib/oils";
+import { oilImage } from "../../src/lib/oilImages";
 
 type Filter = "all" | "single" | "blend";
 
@@ -29,8 +35,17 @@ function touchLabel(oil: Oil): string | null {
   return null;
 }
 
-function OilRow({ oil, onPress }: { oil: Oil; onPress: () => void }) {
+function OilRow({
+  oil,
+  onPress,
+  onShare,
+}: {
+  oil: Oil;
+  onPress: () => void;
+  onShare: () => void;
+}) {
   const palette = usePalette();
+  const img = oilImage(oil.name);
   const sub =
     oil.kind === "single"
       ? oil.botanical ?? "Single oil"
@@ -40,13 +55,21 @@ function OilRow({ oil, onPress }: { oil: Oil; onPress: () => void }) {
       onPress={onPress}
       className="mb-3 flex-row items-center rounded-2xl border border-line bg-panel p-4"
     >
-      <View className="mr-3 h-11 w-11 items-center justify-center rounded-full bg-panel-raised">
-        <Ionicons
-          name={oil.kind === "single" ? "leaf-outline" : "flask-outline"}
-          size={22}
-          color={palette.neonPink}
+      {img ? (
+        <Image
+          source={img}
+          style={{ width: 48, height: 48, borderRadius: 12, marginRight: 12 }}
+          resizeMode="contain"
         />
-      </View>
+      ) : (
+        <View className="mr-3 h-11 w-11 items-center justify-center rounded-full bg-panel-raised">
+          <Ionicons
+            name={oil.kind === "single" ? "leaf-outline" : "flask-outline"}
+            size={22}
+            color={palette.neonPink}
+          />
+        </View>
+      )}
       <View className="flex-1">
         <Text className="text-base font-bold text-text">{oil.name}</Text>
         <Text className="text-sm italic text-muted" numberOfLines={1}>
@@ -56,6 +79,14 @@ function OilRow({ oil, onPress }: { oil: Oil; onPress: () => void }) {
           {oil.origin ?? "Blend of oils"} · {oil.size}
         </Text>
       </View>
+      <Pressable
+        onPress={onShare}
+        hitSlop={10}
+        accessibilityLabel={`Share ${oil.name} to the community`}
+        className="mr-1 p-2"
+      >
+        <Ionicons name="share-social-outline" size={20} color={palette.neonPink} />
+      </Pressable>
       <Ionicons name="chevron-forward" size={18} color={palette.faint} />
     </Pressable>
   );
@@ -78,9 +109,18 @@ function RootStep({ label, value, last }: { label: string; value: string; last?:
   );
 }
 
-function OilDetail({ oil, onClose }: { oil: Oil; onClose: () => void }) {
+function OilDetail({
+  oil,
+  onClose,
+  onShare,
+}: {
+  oil: Oil;
+  onClose: () => void;
+  onShare: () => void;
+}) {
   const palette = usePalette();
   const touch = touchLabel(oil);
+  const img = oilImage(oil.name);
   return (
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View className="flex-1 bg-void">
@@ -91,6 +131,16 @@ function OilDetail({ oil, onClose }: { oil: Oil; onClose: () => void }) {
               <Ionicons name="close" size={26} color={palette.muted} />
             </Pressable>
           </View>
+
+          {img ? (
+            <View className="mb-6 items-center">
+              <Image
+                source={img}
+                style={{ width: 168, height: 168, borderRadius: 20 }}
+                resizeMode="contain"
+              />
+            </View>
+          ) : null}
 
           <View className="mb-6 flex-row flex-wrap gap-2">
             <View className="rounded-full bg-panel px-3 py-1.5">
@@ -161,6 +211,14 @@ function OilDetail({ oil, onClose }: { oil: Oil; onClose: () => void }) {
           <Text className="text-center text-xs leading-5 text-faint">
             Source: doTERRA US product pages &amp; Product Guide, Fall/Winter 2026.
           </Text>
+
+          <Pressable
+            onPress={onShare}
+            className="mt-6 flex-row items-center justify-center rounded-full border border-line bg-panel-raised py-3"
+          >
+            <Ionicons name="share-social-outline" size={18} color={palette.neonPink} />
+            <Text className="ml-2 text-base font-bold text-text">Share to community</Text>
+          </Pressable>
         </ScrollView>
       </View>
     </Modal>
@@ -172,6 +230,19 @@ export default function OilsScreen() {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Oil | null>(null);
+  const [shareDraft, setShareDraft] = useState<SharePostDraft | null>(null);
+
+  function shareOil(oil: Oil) {
+    const note = oil.origin ? `${oil.aroma} Sourced in ${oil.origin}.` : oil.aroma;
+    setSelected(null);
+    setShareDraft({
+      shelfType: "other",
+      title: oil.name,
+      kindLabel: "Oil",
+      emoji: "🌿",
+      note,
+    });
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -222,7 +293,11 @@ export default function OilsScreen() {
         data={filtered}
         keyExtractor={(oil) => oil.id}
         renderItem={({ item }) => (
-          <OilRow oil={item} onPress={() => setSelected(item)} />
+          <OilRow
+            oil={item}
+            onPress={() => setSelected(item)}
+            onShare={() => shareOil(item)}
+          />
         )}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
         ListEmptyComponent={
@@ -233,7 +308,14 @@ export default function OilsScreen() {
           />
         }
       />
-      {selected ? <OilDetail oil={selected} onClose={() => setSelected(null)} /> : null}
+      {selected ? (
+        <OilDetail
+          oil={selected}
+          onClose={() => setSelected(null)}
+          onShare={() => shareOil(selected)}
+        />
+      ) : null}
+      <ShareToCommunityModal post={shareDraft} onClose={() => setShareDraft(null)} />
     </Screen>
   );
 }

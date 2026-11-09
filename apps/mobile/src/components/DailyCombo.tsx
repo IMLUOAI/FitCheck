@@ -9,6 +9,8 @@ import {
   SLOT_LABELS,
   type OutfitSlot,
 } from "../lib/outfit";
+import { recommendOil } from "../lib/oilRecommendations";
+import type { PersonaId } from "../lib/personas";
 import { ShopButton } from "./ShopButton";
 import { usePalette } from "../store/theme";
 
@@ -16,6 +18,8 @@ interface DailyComboProps {
   items: ClothingItem[];
   bucket: "hot" | "warm" | "cold";
   condition: string;
+  tempF: number;
+  personaId: PersonaId | null;
   personaPrefs?: Partial<Record<OutfitSlot, string[]>> | null;
   dirtyIds: Set<string>;
 }
@@ -49,6 +53,8 @@ export function DailyCombo({
   items,
   bucket,
   condition,
+  tempF,
+  personaId,
   personaPrefs,
   dirtyIds,
 }: DailyComboProps) {
@@ -72,6 +78,8 @@ export function DailyCombo({
     personaPrefs ?? null,
   );
   const note = conditionNote(condition);
+  // Today's scent: same date seed as the outfit (shuffle rolls a new one).
+  const scent = recommendOil(tempF, personaId, seedOverride ?? todaySeed());
 
   return (
     <View className="mb-4 rounded-2xl border border-line bg-panel p-4">
@@ -180,6 +188,28 @@ export function DailyCombo({
           </Text>
         </Pressable>
       ) : null}
+
+      <Pressable
+        onPress={() => router.push("/(tabs)/oils")}
+        className="mt-1 flex-row items-center rounded-xl border border-line bg-panel-raised p-3"
+      >
+        <View
+          className="mr-3 h-10 w-10 items-center justify-center rounded-full"
+          style={{ backgroundColor: `${palette.neonPink}26` }}
+        >
+          <Ionicons name="leaf-outline" size={20} color={palette.neonPink} />
+        </View>
+        <View className="flex-1">
+          <Text className="text-xs font-semibold uppercase tracking-widest text-muted">
+            Today&apos;s scent
+          </Text>
+          <Text className="mt-0.5 text-base font-bold text-text">{scent.oil.name}</Text>
+          <Text className="text-sm text-muted" numberOfLines={2}>
+            {scent.reason}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={palette.faint} />
+      </Pressable>
     </View>
   );
 }

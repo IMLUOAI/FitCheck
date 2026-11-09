@@ -5,15 +5,21 @@ import type {
   Battle,
   BattlePick,
   ClothingItem,
+  Comment,
   CreateBattleInput,
+  CreateCommentInput,
   CreateFitInput,
+  CreatePostInput,
   DataEnvelope,
   Favorite,
   Fit,
   GalleryItem,
   GalleryUploadFile,
   GetBattlesParams,
+  GetCommentsParams,
   GetFitsParams,
+  GetPostsParams,
+  Post,
   PublicUser,
   SignInInput,
   SignUpInput,
@@ -75,16 +81,31 @@ export class DripApi {
       const token = await this.getToken();
       if (token) headers.Authorization = `Bearer ${token}`;
     }
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method,
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    const text = await response.text();
-    if (!response.ok) {
-      throw new ApiError(response.status, text);
+    // Bound every request: without this, a sleeping server (Render's free
+    // tier can take ~30s to wake) leaves the screen on a wordless spinner
+    // with no way forward. 45s still allows a cold wake to answer.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 45 * 1000);
+    try {
+      const response = await fetch(`${this.baseUrl}${path}`, {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: controller.signal,
+      });
+      const text = await response.text();
+      if (!response.ok) {
+        throw new ApiError(response.status, text);
+      }
+      return (text ? JSON.parse(text) : undefined) as T;
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new Error("Request timed out — the server may be waking up. Try again.");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
     }
-    return (text ? JSON.parse(text) : undefined) as T;
   }
 
   /** POST /signin -> { token } */
@@ -105,6 +126,12 @@ export class DripApi {
   /** PATCH /users/me -> { data: user } */
   async updateMe(input: UpdateProfileInput): Promise<User> {
     const res = await this.request<DataEnvelope<User>>("/users/me", "PATCH", input);
+    return res.data;
+  }
+
+  /** PATCH /users/me/dob -> { data: user } (birthday-gate; dob is YYYY-MM-DD) */
+  async updateDob(dob: string): Promise<User> {
+    const res = await this.request<DataEnvelope<User>>("/users/me/dob", "PATCH", { dob });
     return res.data;
   }
 
@@ -155,6 +182,39 @@ export class DripApi {
   /** GET /gallery -> GalleryItem[] */
   async getGallery(): Promise<GalleryItem[]> {
     return this.request<GalleryItem[]>("/gallery", "GET");
+  }
+
+  /** GET /gallery/public -> GalleryItem[] (public items from other users, newest first) */
+  async getPublicGallery(): Promise<GalleryItem[]> {
+    return this.request<GalleryItem[]>("/gallery/public", "GET");
+  }
+
+  /** PATCH /gallery/:id/visibility -> { data: item } */
+  async setGalleryVisibility(id: string, isPublic: boolean): Promise<GalleryItem> {
+    const res = await this.request<DataEnvelope<GalleryItem>>(
+      `/gallery/${encodeURIComponent(id)}/visibility`,
+      "PATCH",
+      { isPublic },
+    );
+    return res.data;
+  }
+
+  /** PUT /gallery/:id/likes -> { data: item } */
+  async likeGalleryItem(id: string): Promise<GalleryItem> {
+    const res = await this.request<DataEnvelope<GalleryItem>>(
+      `/gallery/${encodeURIComponent(id)}/likes`,
+      "PUT",
+    );
+    return res.data;
+  }
+
+  /** DELETE /gallery/:id/likes -> { data: item } */
+  async unlikeGalleryItem(id: string): Promise<GalleryItem> {
+    const res = await this.request<DataEnvelope<GalleryItem>>(
+      `/gallery/${encodeURIComponent(id)}/likes`,
+      "DELETE",
+    );
+    return res.data;
   }
 
   /** POST /gallery/link -> 201 { data: item } */
@@ -264,6 +324,56 @@ export class DripApi {
     const res = await this.request<DataEnvelope<Battle>>(
       `/battles/${encodeURIComponent(id)}/close`,
       "POST",
+    );
+    return res.data;
+  }
+
+  /** GET /comments?targetType=&targetId= -> Comment[] (oldest first) */
+  async getComments(params: GetCommentsParams): Promise<Comment[]> {
+    return this.request<Comment[]>(`/comments${toQuery(params)}`, "GET");
+  }
+
+  /** POST /comments -> 201 { data: comment } */
+  async addComment(input: CreateCommentInput): Promise<Comment> {
+    const res = await this.request<DataEnvelope<Comment>>("/comments", "POST", input);
+    return res.data;
+  }
+
+  /** DELETE /comments/:id (author or target owner) */
+  async deleteComment(id: string): Promise<void> {
+    await this.request(`/comments/${encodeURIComponent(id)}`, "DELETE");
+  }
+
+  /** GET /posts -> Post[] (bare array, newest first) */
+  async getPosts(params: GetPostsParams = {}): Promise<Post[]> {
+    return this.request<Post[]>(`/posts${toQuery(params)}`, "GET");
+  }
+
+  /** POST /posts -> 201 { data: post } */
+  async createPost(input: CreatePostInput): Promise<Post> {
+    const res = await this.request<DataEnvelope<Post>>("/posts", "POST", input);
+    return res.data;
+  }
+
+  /** DELETE /posts/:id (owner only) */
+  async deletePost(id: string): Promise<void> {
+    await this.request(`/posts/${encodeURIComponent(id)}`, "DELETE");
+  }
+
+  /** PUT /posts/:id/likes -> { data: post } */
+  async likePost(id: string): Promise<Post> {
+    const res = await this.request<DataEnvelope<Post>>(
+      `/posts/${encodeURIComponent(id)}/likes`,
+      "PUT",
+    );
+    return res.data;
+  }
+
+  /** DELETE /posts/:id/likes -> { data: post } */
+  async unlikePost(id: string): Promise<Post> {
+    const res = await this.request<DataEnvelope<Post>>(
+      `/posts/${encodeURIComponent(id)}/likes`,
+      "DELETE",
     );
     return res.data;
   }

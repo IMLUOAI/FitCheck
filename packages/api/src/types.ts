@@ -19,11 +19,17 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
+  /** 17+ flag computed from dob by the backend (birthday-gate). */
+  isAdult: boolean;
+  /** Raw date of birth (YYYY-MM-DD) — only ever present on the user's own record. */
+  dob?: string | null;
 }
 
 export interface ClothingItem {
   _id: string;
   name: string;
+  /** Brand label, e.g. "Nike". Optional; older items have none. */
+  brand?: string;
   /** Backend stores lowercase "hot" | "warm" | "cold". */
   weather: string;
   imageUrl: string;
@@ -53,7 +59,14 @@ export interface GalleryItem {
   source: GallerySource;
   url: string;
   title: string;
-  owner: string;
+  /** Public items show in Discover; private by default. */
+  isPublic: boolean;
+  /** User ids that liked this item. */
+  likes: string[];
+  /** Denormalized comment count (0 for items saved before comments existed). */
+  commentCount?: number;
+  /** Owner id, or the populated profile on the public feed. */
+  owner: FitOwner | string;
   createdAt: string;
 }
 
@@ -74,12 +87,16 @@ export interface SignUpInput {
   avatar: string;
   email: string;
   password: string;
+  /** Date of birth as YYYY-MM-DD — required by the backend (birthday-gate). */
+  dob: string;
 }
 
 export interface AddItemInput {
   name: string;
   weather: WeatherBucket;
   imageUrl: string;
+  /** Optional brand label, e.g. "Nike". */
+  brand?: string;
 }
 
 export interface AddFavoriteInput {
@@ -136,7 +153,65 @@ export interface Fit {
   weather: WeatherBucket;
   note?: string;
   likes: string[];
+  /** Denormalized comment count (0 for fits saved before comments existed). */
+  commentCount?: number;
   createdAt: string;
+}
+
+/** A comment on a fit, a shelf post, or an album photo. `author` may be populated or a raw id. */
+export interface Comment {
+  _id: string;
+  targetType: "fit" | "post" | "gallery";
+  targetId: string;
+  author: FitOwner | string;
+  text: string;
+  createdAt: string;
+}
+
+export type ShelfPostType = "book" | "song" | "other";
+
+/** A shared shelf item (book / song / other) posted to the community. */
+export interface Post {
+  _id: string;
+  owner: FitOwner | string;
+  kind: "shelf";
+  shelfType: ShelfPostType;
+  title: string;
+  creator?: string;
+  coverUrl?: string;
+  url?: string;
+  note?: string;
+  likes: string[];
+  commentCount: number;
+  createdAt: string;
+}
+
+export interface CreateCommentInput {
+  targetType: "fit" | "post" | "gallery";
+  targetId: string;
+  text: string;
+}
+
+export interface CreatePostInput {
+  shelfType: ShelfPostType;
+  title: string;
+  creator?: string;
+  coverUrl?: string;
+  url?: string;
+  note?: string;
+}
+
+export interface GetCommentsParams {
+  targetType: "fit" | "post" | "gallery";
+  targetId: string;
+  limit?: number;
+  page?: number;
+}
+
+export interface GetPostsParams {
+  owner?: string;
+  limit?: number;
+  page?: number;
 }
 
 /** A-vs-B outfit battle. `fitA`/`fitB` are populated on GET /battles. */
@@ -175,6 +250,36 @@ export interface GetBattlesParams {
   status?: "open" | "closed";
   limit?: number;
   page?: number;
+}
+
+/** Normalize a gallery item's owner to its id whether populated or raw. */
+export function galleryOwnerId(item: GalleryItem): string {
+  return typeof item.owner === "string" ? item.owner : item.owner._id;
+}
+
+/** Normalize a gallery item's owner to a displayable profile. */
+export function galleryOwnerProfile(item: GalleryItem): FitOwner | null {
+  return typeof item.owner === "string" ? null : item.owner;
+}
+
+/** Normalize a comment's author to a displayable profile. */
+export function commentAuthorProfile(comment: Comment): FitOwner | null {
+  return typeof comment.author === "string" ? null : comment.author;
+}
+
+/** Normalize a comment's author to its id whether populated or raw. */
+export function commentAuthorId(comment: Comment): string {
+  return typeof comment.author === "string" ? comment.author : comment.author._id;
+}
+
+/** Normalize a post's owner to its id whether populated or raw. */
+export function postOwnerId(post: Post): string {
+  return typeof post.owner === "string" ? post.owner : post.owner._id;
+}
+
+/** Normalize a post's owner to a displayable profile. */
+export function postOwnerProfile(post: Post): FitOwner | null {
+  return typeof post.owner === "string" ? null : post.owner;
 }
 
 /** Normalize a fit's owner to its id whether populated or raw. */

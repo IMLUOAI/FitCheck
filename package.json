@@ -4,6 +4,9 @@
     "node": ">=20"
   },
   "name": "dripcast",
+  "overrides": {
+    "react": "19.3.0"
+  },
   "private": true,
   "scripts": {
     "android": "npm run android --workspace=@dripcast/mobile",

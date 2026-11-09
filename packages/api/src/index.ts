@@ -10,6 +10,9 @@ export type {
   FitItem,
   Battle,
   BattlePick,
+  Comment,
+  Post,
+  ShelfPostType,
   Favorite,
   FavoriteType,
   GalleryItem,
@@ -25,7 +28,11 @@ export type {
   UpdateProfileInput,
   CreateFitInput,
   CreateBattleInput,
+  CreateCommentInput,
+  CreatePostInput,
   GetFitsParams,
   GetBattlesParams,
+  GetCommentsParams,
+  GetPostsParams,
 } from "./types";
-export { WEATHER_BUCKETS, isWeatherBucket, fitOwnerId, fitOwnerProfile, fitItemIds, fitDisplayItems, battleFit } from "./types";
+export { WEATHER_BUCKETS, isWeatherBucket, fitOwnerId, fitOwnerProfile, fitItemIds, fitDisplayItems, battleFit, commentAuthorId, commentAuthorProfile, postOwnerId, postOwnerProfile, galleryOwnerId, galleryOwnerProfile } from "./types";

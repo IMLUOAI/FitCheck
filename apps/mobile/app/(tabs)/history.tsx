@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -7,20 +7,35 @@ import {
   Text,
   View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import type { Fit } from "@dripcast/api";
 import { Screen } from "../../src/components/Screen";
 import { EmptyState } from "../../src/components/EmptyState";
 import { useFitHistory } from "../../src/hooks/useSocial";
+import { usePersona } from "../../src/hooks/usePersona";
 import { useAuthStore } from "../../src/store/auth";
 import { usePalette } from "../../src/store/theme";
+import {
+  recommendOil,
+  seedFromDateKey,
+  tempForBucket,
+} from "../../src/lib/oilRecommendations";
 import {
   buildMonthGrid,
   dayKey,
   findRepeat,
   groupFitsByDay,
 } from "../../src/lib/fitHistory";
+
+const TRIPS_KEY = "dripcast.trips";
+
+interface SavedTripLite {
+  destination: string;
+  startDate: string;
+  endDate: string;
+}
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 
@@ -88,6 +103,28 @@ export default function History() {
   const router = useRouter();
   const userId = useAuthStore((s) => s.user?._id);
   const history = useFitHistory(userId);
+  const { personaId } = usePersona();
+  const [trips, setTrips] = useState<SavedTripLite[]>([]);
+
+  // Saved trips live in AsyncStorage; reload whenever the tab gains focus
+  // so a trip saved in the Trips tab shows up here without a restart.
+  useFocusEffect(
+    useCallback(() => {
+      let live = true;
+      void AsyncStorage.getItem(TRIPS_KEY).then((raw) => {
+        if (!live || !raw) return;
+        try {
+          const parsed = JSON.parse(raw) as SavedTripLite[];
+          if (Array.isArray(parsed)) setTrips(parsed);
+        } catch {
+          // Corrupt cache — no trip markers.
+        }
+      });
+      return () => {
+        live = false;
+      };
+    }, []),
+  );
 
   const [cursor, setCursor] = useState(() => new Date());
   const [selectedKey, setSelectedKey] = useState(() => dayKey(new Date()));
@@ -107,6 +144,19 @@ export default function History() {
   const byDay = useMemo(() => groupFitsByDay(history.data ?? []), [history.data]);
   const selectedFits = byDay.get(selectedKey) ?? [];
   const allFits = history.data ?? [];
+
+  const tripForKey = (key: string) =>
+    trips.find((t) => t.startDate <= key && key <= t.endDate);
+  const selectedTrip = tripForKey(selectedKey);
+
+  // The day's scent, reconstructed from the first fit's weather bucket
+  // (past temperatures aren't stored) and the same date seed as the
+  // Daily Combo — so History shows the scent that went with the fit.
+  const selectedScent = useMemo(() => {
+    const firstFit = selectedFits[0];
+    const tempF = firstFit ? tempForBucket(firstFit.weather) : 68;
+    return recommendOil(tempF, personaId, seedFromDateKey(selectedKey));
+  }, [selectedFits, personaId, selectedKey]);
 
   const monthLabel = cursor.toLocaleString("en-US", { month: "long", year: "numeric" });
 
@@ -187,6 +237,7 @@ export default function History() {
                 const count = byDay.get(key)?.length ?? 0;
                 const isToday = key === todayKey;
                 const isSelected = key === selectedKey;
+                const onTrip = tripForKey(key) !== undefined;
                 return (
                   <Pressable
                     key={key}
@@ -194,6 +245,9 @@ export default function History() {
                     className="flex-1 items-center justify-center"
                     style={{ aspectRatio: 1 }}
                   >
+                    {onTrip ? (
+                      <Text className="absolute right-0.5 top-0.5 text-[10px]">✈️</Text>
+                    ) : null}
                     <View
                       className={`h-9 w-9 items-center justify-center rounded-full ${
                         isSelected ? "bg-neon-pink" : isToday ? "border border-neon-pink" : ""
@@ -228,6 +282,36 @@ export default function History() {
             {shortDayLabel(selectedKey)} · {selectedFits.length}{" "}
             {selectedFits.length === 1 ? "fit" : "fits"}
           </Text>
+          {selectedTrip ? (
+            <Pressable
+              onPress={() => router.push("/(tabs)/trips")}
+              className="mb-3 flex-row items-center rounded-2xl border border-line bg-panel px-4 py-3"
+            >
+              <Ionicons name="airplane" size={18} color={palette.neonCyan} />
+              <Text className="ml-2 flex-1 text-sm font-bold text-text" numberOfLines={1}>
+                Trip: {selectedTrip.destination}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={palette.faint} />
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={() => router.push("/(tabs)/oils")}
+            className="mb-3 flex-row items-center rounded-2xl border border-line bg-panel px-4 py-3"
+          >
+            <Ionicons name="leaf-outline" size={18} color={palette.neonPink} />
+            <View className="ml-2 flex-1">
+              <Text className="text-xs font-semibold uppercase tracking-widest text-muted">
+                Scent that day
+              </Text>
+              <Text className="mt-0.5 text-sm font-bold text-text">
+                {selectedScent.oil.name}
+              </Text>
+              <Text className="text-xs text-muted" numberOfLines={2}>
+                {selectedScent.reason}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={palette.faint} />
+          </Pressable>
           {history.isPending ? (
             <View className="items-center justify-center py-12">
               <ActivityIndicator color={palette.neonPink} />

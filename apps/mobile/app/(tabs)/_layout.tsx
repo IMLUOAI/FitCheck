@@ -59,6 +59,10 @@ export default function TabLayout() {
         name="trips"
         options={{ title: "Trips", tabBarIcon: tabIcon("airplane") }}
       />
+      <Tabs.Screen
+        name="notes"
+        options={{ title: "Notes", tabBarIcon: tabIcon("document-text") }}
+      />
     </Tabs>
   );
 }

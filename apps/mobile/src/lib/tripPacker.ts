@@ -11,6 +11,7 @@ import { assembleOutfit, categorizeItem, type AssembledOutfit, type OutfitSlot }
 import { bucketForTempF } from "./weather";
 import type { ForecastEntry } from "./eveningAlert";
 import type { Persona } from "./personas";
+import { recommendOil, type TripScent } from "./oilRecommendations";
 
 export interface TripDayForecast {
   /** YYYY-MM-DD in the destination's local time. */
@@ -27,6 +28,8 @@ export interface TripDayPack {
   date: string;
   forecast: TripDayForecast;
   outfit: AssembledOutfit;
+  /** Scent for the day, from the destination's temperature + style world. */
+  scent: TripScent;
 }
 
 export interface PackingList {
@@ -262,7 +265,15 @@ export function buildPackingList(args: {
     for (const item of Object.values(outfit.slots)) {
       if (item) used.add(item._id);
     }
-    return { date: fc.date, forecast: fc, outfit };
+    // One scent per day, from the destination's mid-day temperature and
+    // the style world — same seed as the outfit, so the list is stable.
+    const midF = Math.round((fc.highF + fc.lowF) / 2);
+    const scent = recommendOil(
+      midF,
+      persona?.id ?? null,
+      seedFromString(`${destination}|${fc.date}`),
+    );
+    return { date: fc.date, forecast: fc, outfit, scent };
   });
 
   return {

@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { Screen } from "../../src/components/Screen";
 import { EmptyState } from "../../src/components/EmptyState";
@@ -66,6 +67,7 @@ function bucketEmoji(bucket: string): string {
 
 export default function TripsScreen() {
   const palette = usePalette();
+  const router = useRouter();
   const todayKey = useMemo(() => toDateKey(new Date()), []);
   const [destination, setDestination] = useState("");
   const [startDate, setStartDate] = useState(todayKey);
@@ -198,8 +200,8 @@ export default function TripsScreen() {
           <Text className="ml-2 text-2xl font-black text-text">Trip Packer</Text>
         </View>
         <Text className="mb-4 text-sm text-muted">
-          Destination + dates in, day-by-day outfits out — packed from your closet
-          for the forecast.
+          Destination + dates in, day-by-day outfits and scents out — packed from
+          your closet for the forecast.
         </Text>
 
         {/* Builder form */}
@@ -309,6 +311,23 @@ export default function TripsScreen() {
                     </View>
                   );
                 })}
+                {day.scent ? (
+                  <Pressable
+                    onPress={() => router.push("/(tabs)/oils")}
+                    className="mt-2 flex-row items-center rounded-xl border border-line bg-panel-raised px-3 py-2"
+                  >
+                    <Ionicons name="leaf-outline" size={16} color={palette.neonPink} />
+                    <View className="ml-2 flex-1">
+                      <Text className="text-sm font-bold text-text">
+                        Scent: {day.scent.oil.name}
+                      </Text>
+                      <Text className="text-xs text-muted" numberOfLines={2}>
+                        {day.scent.reason}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={palette.faint} />
+                  </Pressable>
+                ) : null}
               </View>
             ))}
 
@@ -339,6 +358,53 @@ export default function TripsScreen() {
                 </Pressable>
               );
             })}
+
+            {/* Scents to pack — the unique bottles across the trip's days. */}
+            {(() => {
+              const scents = [
+                ...new Set(
+                  packing.days
+                    .map((d) => d.scent?.oil.name)
+                    .filter((n): n is string => Boolean(n)),
+                ),
+              ];
+              if (scents.length === 0) return null;
+              return (
+                <View className="mt-1">
+                  <Text className="mb-2 text-base font-black text-text">
+                    Scents to pack 🌿
+                  </Text>
+                  {scents.map((name) => {
+                    const key = `oil:${name}`;
+                    const done = checked.has(key);
+                    return (
+                      <Pressable
+                        key={key}
+                        onPress={() => toggleChecked(key)}
+                        hitSlop={6}
+                        className="mb-2 flex-row items-center rounded-xl border border-line bg-panel px-3 py-2.5"
+                      >
+                        <Ionicons
+                          name={done ? "checkmark-circle" : "ellipse-outline"}
+                          size={22}
+                          color={done ? palette.neonPink : palette.muted}
+                        />
+                        <Text
+                          className="ml-3 flex-1 text-sm text-text"
+                          style={
+                            done
+                              ? { textDecorationLine: "line-through", opacity: 0.55 }
+                              : null
+                          }
+                        >
+                          {name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              );
+            })()}
           </View>
         ) : null}
 

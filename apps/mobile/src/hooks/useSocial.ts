@@ -1,3 +1,4 @@
+import { Alert } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@dripcast/api";
 import type {
@@ -190,6 +191,9 @@ export function usePublicGallery() {
   return useQuery({
     queryKey: queryKeys.publicGallery,
     queryFn: () => api.getPublicGallery(),
+    // Don't spin through the default 3 retries on a sleeping server — one
+    // retry, then the error state with its Retry button.
+    retry: 1,
   });
 }
 
@@ -200,6 +204,32 @@ export function useSetGalleryVisibility() {
     mutationFn: (vars: { id: string; isPublic: boolean }) => {
       requireAuth();
       return api.setGalleryVisibility(vars.id, vars.isPublic);
+    },
+    // Flip the switch instantly; the server confirms it a moment later.
+    // Without this, a slow first request (e.g. Render waking from sleep)
+    // leaves the toggle looking stuck with no feedback at all.
+    onMutate: async (vars) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.gallery });
+      const previous = queryClient.getQueryData<GalleryItem[]>(queryKeys.gallery);
+      queryClient.setQueryData<GalleryItem[]>(queryKeys.gallery, (prev) =>
+        (prev ?? []).map((g) => (g._id === vars.id ? { ...g, isPublic: vars.isPublic } : g)),
+      );
+      return { previous };
+    },
+    // Roll the switch back, then say so — a silent failure is what made
+    // this look "stuck".
+    onError: (err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.gallery, context.previous);
+      }
+      Alert.alert(
+        "Couldn't change visibility",
+        isBackendMissing(err)
+          ? "The server update isn't live yet — deploy the social backend first, then try again."
+          : err instanceof ApiError
+            ? `Server error (${err.status}). Check your connection and try again.`
+            : "Check your connection and try again.",
+      );
     },
     onSuccess: (updated) => {
       queryClient.setQueryData<GalleryItem[]>(queryKeys.gallery, (prev) =>

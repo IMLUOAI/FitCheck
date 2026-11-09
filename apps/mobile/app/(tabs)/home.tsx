@@ -7,6 +7,7 @@ import type { ClothingItem } from "@dripcast/api";
 import { bucketColors } from "@dripcast/theme";
 import { Screen } from "../../src/components/Screen";
 import { HeroBanner } from "../../src/components/HeroBanner";
+import { UniverseHero } from "../../src/components/UniverseHero";
 import { TodaysFit } from "../../src/components/TodaysFit";
 import { DailyCombo } from "../../src/components/DailyCombo";
 import { DailyLitCard } from "../../src/components/DailyLitCard";
@@ -30,7 +31,6 @@ import { conditionLabel } from "../../src/lib/weather";
 import { useAuthStore } from "../../src/store/auth";
 import { useIsPro } from "../../src/store/useSubscription";
 import { usePalette } from "../../src/store/theme";
-import { UniverseHero } from "../../src/components/UniverseHero";
 
 export default function Home() {
   const router = useRouter();
@@ -116,7 +116,14 @@ export default function Home() {
                 </Pressable>
               </View>
             </View>
-            <UniverseHero earthSub={weather.data ? `${weather.data.tempF}°F in ${weather.data.city}` : ""} onLocked={() => setPaywallOpen(true)} />
+            <UniverseHero
+              earthSub={
+                weather.data
+                  ? `${weather.data.tempF}°F in ${weather.data.city}`
+                  : undefined
+              }
+              onLocked={() => setPaywallOpen(true)}
+            />
             {weather.isPending ? (
               <View className="mb-4 items-center rounded-2xl border border-line bg-panel p-8">
                 <ActivityIndicator color={palette.neonPink} />
@@ -316,6 +323,8 @@ export default function Home() {
                       items={picks}
                       bucket={bucket}
                       condition={conditionLabel(weather.data.condition)}
+                      tempF={weather.data.tempF}
+                      personaId={personaId}
                       personaPrefs={persona?.keywords ?? null}
                       dirtyIds={dirtyIds}
                     />
